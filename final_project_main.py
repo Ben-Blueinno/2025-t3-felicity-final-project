@@ -1,9 +1,7 @@
 import pgzrun
 from pgzhelper import *
 import random
-import time
 from secret import *
-import json
 
 WIDTH = 1200
 HEIGHT = 700
@@ -101,8 +99,10 @@ backgrounds = [
     "background/gameover"
 ]
 
+game_status = 'init' # 'init', 'game', 'end'
+
 def game_init():
-    global player, enemy, player_spells, enemy_spells, background, questionBank, specialQuestions, question, typed, typed_status, questions_answered, timer, mode, win
+    global player, enemy, player_spells, enemy_spells, background, questionBank, specialQuestions, question, typed, typed_status, questions_answered, timer, mode, win, game_status, grade_buttons
     
     player = Actor(player_idle[0])
     player.images = player_idle
@@ -143,42 +143,56 @@ def game_init():
     win = 0
     
     system_message = 'You are only allowed to response in python list format according to the user\'s request. User will provide the grade and category information, you will then response two word lists with 10 words each, one for basic and one for advance in this python dictinoary format: `{"basic":["word1", "word2"], "advance":["word3", "word4"]}`. The words should only include english characters and space.'
-    grade = int(input('Input your grade: '))
-    category = input('Input the category you would like to learn about: ')
-    response = client.chat.completions.create(
-        model=deployment,
-        temperature=0.6,
-        max_tokens=400,
-        messages=[
-            {"role":"system", 
-             "content": system_message},
-            {"role": "user", 
-             "content": f"The user is in grade {grade} and would like to learn about {category}"}
-            ]
-    )
+    
+    # grade = int(input('Input your grade: '))
+    grade_buttons = []
+    
+    for i in range(6):
+        b = {
+            'text': f"Grade {i*2+1} - {i*2+2}",
+            'pos': (100 + 200*i, 100),
+            'size': (180, 40)
+            }
+        grade_buttons.append(b)
+    
+    # category = input('Input the category you would like to learn about: ')
+    # response = client.chat.completions.create(
+    #     model=deployment,
+    #     temperature=0.6,
+    #     max_tokens=400,
+    #     messages=[
+    #         {"role":"system", 
+    #          "content": system_message},
+    #         {"role": "user", 
+    #          "content": f"The user is in grade {grade} and would like to learn about {category}"}
+    #         ]
+    # )
 
-    content = response.choices[0].message.content.replace('\n', '')
+    # content = response.choices[0].message.content.replace('\n', '')
     
-    content_dict = json.loads(content)
+    # content_dict = json.loads(content)
     
-    questionBank = content_dict["basic"]
-    specialQuestions = content_dict["advance"]
+    # questionBank = content_dict["basic"]
+    # specialQuestions = content_dict["advance"]
     
-    print(questionBank)
-    print(specialQuestions)
-    # questionBank = (['attack', 'spell', 'slash','defeat','slay'])
-    # specialQuestions = (['conquer', 'vanquish', 'triumph', 'overcome'])
-    question = random.choice(questionBank)
-    typed = ''
-    typed_status = 'incomplete'
-    questions_answered = 0
-
-game_init()
+    # print(questionBank)
+    # print(specialQuestions)
+    # # questionBank = (['attack', 'spell', 'slash','defeat','slay'])
+    # # specialQuestions = (['conquer', 'vanquish', 'triumph', 'overcome'])
+    # question = random.choice(questionBank)
+    # typed = ''
+    # typed_status = 'incomplete'
+    # questions_answered = 0
+    # game_status = 'game'
 
 def update():
-    global typed, question, typed_status, timer, mode, enemyspells
+    global typed, question, typed_status, timer, mode, enemyspells, game_status
     
-    if round(timer) > 0 and player.hp > 0:
+    if game_status == 'init':
+        game_init()
+    
+    elif game_status == 'game':
+    # if round(timer) > 0 and player.hp > 0:
         if mode == 1: 
             if player.image != player_death [-1]:
                 player.animate()
@@ -189,12 +203,12 @@ def update():
                 timer -= 1/60
             elif round(timer) == 0:
                 timer = 0
+                game_status = 'end'
             if player.hp <= 0 and player.image not in player_death:
                 player.images = player_death
             # elif player.hp <= 0 and player.image == player_death [-1]:
             #     player.image = player_death [-1]
-
-        if mode == 1:
+            
             if (enemy.collide_pixel(player) or enemy.collide_pixel(player_spells) )and enemy.images != enemy_attack2:
                 enemy.images = enemy_death
             if player_attack[-1] == player.image:
@@ -227,13 +241,16 @@ def update():
                 enemy_spells.pos = enemy.pos
                 enemy_spells.show  = False
 
-    else:
-        if player.hp <= 0 or round(timer) == 0:
-            background.image = backgrounds[2]
-            background.scale = 1
+    elif game_status == 'end':
+        # if player.hp <= 0 or round(timer) == 0:
+        background.image = backgrounds[2]
+        background.scale = 1
         # elif player.hp <= 0:
         #     background.image = backgrounds[2]
         #     background.scale = 1
+        
+    else:
+        print(f'invalid game status: "{game_status}"')
 
 def on_key_down(key):
     global typed, question, typed_status, timer, questions_answered, mode
@@ -285,11 +302,38 @@ def on_key_down(key):
         if key == 13:
             game_init()
 
+def on_mouse_down(pos):
+    for b in grade_buttons:
+        rect = draw_button(b)
+        if rect.collidepoint(pos):
+            print(f'button {b['text']} clicked!')
+
+def draw_button(button):
+    text = button["text"]
+    pos = button["pos"]
+    size = button["size"]
+    padding = 5
+    fontsize = 40
+    
+    # Calculate button size
+    text_width = len(text) * fontsize // 2
+    text_height = fontsize
+    # size = (text_width + padding * 2, text_height + padding * 2)
+    rect = Rect((pos[0] - size[0] // 2, pos[1] - size[1] // 2), size)
+
+    # Draw the button
+    screen.draw.filled_rect(rect, (0, 128, 255))
+    screen.draw.text(text, center=pos, fontsize=fontsize, color=(255, 255, 255))
+    
+    return rect
 
 def draw():
     screen.clear()
     background.draw()
-    if round(timer) > 0 and player.hp > 0 and mode == 1:
+    if game_status == 'init':
+        for b in grade_buttons:
+            draw_button(b)
+    elif round(timer) > 0 and player.hp > 0 and mode == 1:
         if player_spells.show:
             player_spells.draw()
         if enemy_spells.show:
