@@ -2,6 +2,7 @@ import math
 import pygame
 from pygame import Rect
 from pgzero.actor import Actor, POS_TOPLEFT, ANCHOR_CENTER, transform_anchor
+from pgzero.builtins import *
 from pgzero import game, loaders
 import pgzero.screen 
 screen:pgzero.screen.Screen
